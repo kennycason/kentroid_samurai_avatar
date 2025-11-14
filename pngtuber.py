@@ -9,6 +9,7 @@ import pyaudio
 import numpy as np
 import math
 import sys
+import random
 from PIL import Image
 from pathlib import Path
 
@@ -29,6 +30,13 @@ class SamuraiPNGTuber:
         # Load samurai image
         self.image_path = Path(__file__).parent / "KentroidSamuraiTopVisorShade.PNG"
         self.load_image()
+        
+        # Load explosion sprite sheet
+        self.load_explosion_sprites()
+        
+        # Effects system
+        self.current_effect = None
+        self.active_explosions = []
         
         # Zoom settings
         # Multiple zoom levels from full body to extreme close-up
@@ -142,6 +150,26 @@ class SamuraiPNGTuber:
         self.original_image = self.original_image.convert_alpha()
         
         print(f"Loaded image: {self.original_width}x{self.original_height}")
+    
+    def load_explosion_sprites(self):
+        """Load and split explosion sprite sheet into individual frames"""
+        explosion_path = Path(__file__).parent / "explosion.png"
+        explosion_sheet = pygame.image.load(str(explosion_path)).convert_alpha()
+        
+        # Get dimensions - 10 frames in a single row
+        sheet_width = explosion_sheet.get_width()
+        sheet_height = explosion_sheet.get_height()
+        frame_width = sheet_width // 10
+        frame_height = sheet_height
+        
+        # Split into individual frames
+        self.explosion_frames = []
+        for i in range(10):
+            frame_rect = pygame.Rect(i * frame_width, 0, frame_width, frame_height)
+            frame = explosion_sheet.subsurface(frame_rect).copy()
+            self.explosion_frames.append(frame)
+        
+        print(f"Loaded {len(self.explosion_frames)} explosion frames ({frame_width}x{frame_height} each)")
         
     def init_audio(self):
         """Initialize PyAudio for microphone input"""
@@ -183,6 +211,95 @@ class SamuraiPNGTuber:
             print(f"Audio callback error: {e}")
         
         return (in_data, pyaudio.paContinue)
+    
+    def activate_effect(self, effect_number):
+        """Activate or toggle an effect"""
+        # If same effect is already active, deactivate it
+        if self.current_effect == effect_number:
+            print(f"Deactivating effect {effect_number}")
+            self.current_effect = None
+            self.active_explosions.clear()
+        else:
+            # Deactivate current effect and activate new one
+            if self.current_effect is not None:
+                print(f"Stopping effect {self.current_effect}")
+                self.active_explosions.clear()
+            
+            print(f"Activating effect {effect_number}")
+            self.current_effect = effect_number
+            
+            # Initialize effect-specific state
+            if effect_number == 1:
+                self.effect1_red_phase = 0.0  # Phase for oscillation
+                self.effect1_explosion_timer = 0
+    
+    def update_effects(self):
+        """Update active effects each frame"""
+        if self.current_effect == 1:
+            self.update_effect_1()
+    
+    def update_effect_1(self):
+        """Update Effect 1: Rage mode with red tint and explosions"""
+        # Oscillate red tint slowly (sine wave for smooth oscillation)
+        self.effect1_red_phase += 0.015  # Slower oscillation speed
+        # Use sine wave to oscillate between 0.3 (light red) and 1.0 (dark red)
+        self.effect1_red_intensity = 0.65 + 0.35 * math.sin(self.effect1_red_phase)
+        
+        # Spawn explosions randomly - MORE EXPLOSIONS!
+        self.effect1_explosion_timer += 1
+        if self.effect1_explosion_timer >= 4:  # Spawn every 4 frames (twice as fast!)
+            self.effect1_explosion_timer = 0
+            
+            # Spawn 1-2 explosions per spawn cycle
+            num_explosions = random.randint(1, 2)
+            for _ in range(num_explosions):
+                # Random position on screen
+                x = random.randint(0, self.width)
+                y = random.randint(0, self.height)
+                
+                # Random size (50% to 150% of original)
+                scale = random.uniform(0.5, 1.5)
+                
+                explosion = {
+                    'x': x,
+                    'y': y,
+                    'frame': 0,
+                    'scale': scale
+                }
+                self.active_explosions.append(explosion)
+        
+        # Update all explosions
+        for explosion in self.active_explosions[:]:
+            explosion['frame'] += 0.5  # Animate through frames quickly
+            if explosion['frame'] >= len(self.explosion_frames):
+                self.active_explosions.remove(explosion)
+    
+    def apply_red_tint(self, surface):
+        """Apply red tint overlay to a surface"""
+        if self.current_effect == 1 and self.effect1_red_intensity > 0:
+            # Create a red overlay
+            red_overlay = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
+            alpha = int(self.effect1_red_intensity * 150)  # Max 150 alpha for red tint
+            red_overlay.fill((255, 0, 0, alpha))
+            surface.blit(red_overlay, (0, 0))
+        return surface
+    
+    def draw_explosions(self):
+        """Draw all active explosions"""
+        for explosion in self.active_explosions:
+            frame_index = int(explosion['frame'])
+            if 0 <= frame_index < len(self.explosion_frames):
+                frame = self.explosion_frames[frame_index]
+                
+                # Scale the explosion
+                if explosion['scale'] != 1.0:
+                    new_width = int(frame.get_width() * explosion['scale'])
+                    new_height = int(frame.get_height() * explosion['scale'])
+                    frame = pygame.transform.smoothscale(frame, (new_width, new_height))
+                
+                # Center the explosion at its position
+                rect = frame.get_rect(center=(explosion['x'], explosion['y']))
+                self.screen.blit(frame, rect)
     
     def get_scaled_image(self):
         """Get the samurai image scaled according to current zoom level"""
@@ -251,6 +368,9 @@ class SamuraiPNGTuber:
     def draw(self):
         """Main drawing function"""
         self.frame_count += 1
+        
+        # Update active effects
+        self.update_effects()
         
         # Clear screen with black background
         self.screen.fill((0, 0, 0))
@@ -353,6 +473,13 @@ class SamuraiPNGTuber:
         # Draw the samurai
         self.screen.blit(rotated_image, rotated_rect)
         
+        # Apply red tint effect over the character (if active)
+        if self.current_effect == 1:
+            self.apply_red_tint(self.screen)
+        
+        # Draw explosions on top of everything
+        self.draw_explosions()
+        
         # Draw UI info if enabled
         if self.show_ui:
             self.draw_ui()
@@ -370,9 +497,14 @@ class SamuraiPNGTuber:
         pattern_name = self.bob_patterns[self.bob_pattern]['type']
         total_glow = self.glow_base_intensity + self.glow_intensity
         
+        effect_str = f"Effect {self.current_effect}" if self.current_effect else "None"
+        if self.current_effect == 1:
+            effect_str += f" (RAGE 🔥 Red: {self.effect1_red_intensity:.2f})"
+        
         texts = [
             f"Zoom: {zoom_name} (Z+1 to Z+5)",
             f"Viewport: {viewport} (D+1/D+2)",
+            f"Effect: {effect_str} (E+1 to toggle)",
             f"Glow: {'🔵 TALKING' if self.glow_intensity > 0.02 else '🔵 IDLE'} ({total_glow:.2f})",
             f"Audio: Vol={self.last_volume:.0f}, Threshold={self.audio_threshold}",
             f"Bob: {self.rock_intensity:.2f} ({pattern_name})",
@@ -444,6 +576,14 @@ class SamuraiPNGTuber:
                 # D+2 for viewport 2 (1200x800)
                 elif pygame.K_d in self.keys_pressed and event.key == pygame.K_2:
                     self.change_viewport(1)
+                
+                # E+1, E+2, etc. for effects
+                elif pygame.K_e in self.keys_pressed and event.key == pygame.K_1:
+                    self.activate_effect(1)
+                elif pygame.K_e in self.keys_pressed and event.key == pygame.K_2:
+                    self.activate_effect(2)
+                elif pygame.K_e in self.keys_pressed and event.key == pygame.K_3:
+                    self.activate_effect(3)
             
             elif event.type == pygame.KEYUP:
                 if event.key in self.keys_pressed:
@@ -460,6 +600,7 @@ class SamuraiPNGTuber:
         print("  Z+5: Extreme zoom (most zoomed)")
         print("  D+1: Square viewport (800x800)")
         print("  D+2: Wide viewport (1200x800)")
+        print("  E+1: Toggle RAGE effect (red tint + explosions)")
         print("  T: Toggle UI text overlay")
         print("  ESC: Quit")
         print("\nSpeak into your microphone to activate the visor glow and talking animation!")
