@@ -33,12 +33,12 @@ class SamuraiPNGTuber:
         # Zoom settings
         # Multiple zoom levels from full body to extreme close-up
         # Mask center at (1054, 514) in original 2048x2732 image
-        self.mask_center_original = (1054, 514)
+        self.mask_center_original = (1000, 500) # (1054, 514)
         self.image_center_original = (self.original_width // 2, self.original_height // 2)
         
         # Visor glow offset adjustment (relative to mask center)
         # Negative X = shift left, Positive X = shift right
-        self.visor_glow_offset = (-50, 0)  # Shift 80px left from mask center
+        self.visor_glow_offset = (0, 0)  # Shift 80px left from mask center
         
         self.zoom_levels = [
             {
@@ -47,23 +47,33 @@ class SamuraiPNGTuber:
                 'focus': 'center'  # Focus on image center
             },
             {
-                'name': 'medium',
+                'name': 'face1',
                 'scale': 1.0,
                 'focus': 'mask'  # Focus on mask
             },
             {
-                'name': 'close',
+                'name': 'face2',
                 'scale': 1.1,
                 'focus': 'mask'
             },
             {
-                'name': 'closer',
+                'name': 'face3',
                 'scale': 1.2,
                 'focus': 'mask'
             },
             {
-                'name': 'extreme',
-                'scale': 1.3,  # Most zoomed in
+                'name': 'face4',
+                'scale': 1.3,
+                'focus': 'mask'
+            },
+            {
+                'name': 'face5',
+                'scale': 1.4,
+                'focus': 'mask'
+            },
+            {
+                'name': 'face6',
+                'scale': 1.5,
                 'focus': 'mask'
             }
         ]
@@ -199,7 +209,7 @@ class SamuraiPNGTuber:
         total_intensity = min(1.0, total_intensity)
         
         # Scale the 400x400 glow to current image scale (fixed size, no pulsing)
-        glow_radius = int((self.glow_base_size / 2) * scale)
+        glow_radius = int((self.glow_base_size / 2) * scale * 0.95)
         
         # Determine color based on talking intensity
         # Idle: Blue -> Low volume: Cyan -> Medium: Green -> High: Pink/Magenta -> Very High: Purple
@@ -420,6 +430,12 @@ class SamuraiPNGTuber:
                     self.change_zoom(3)
                 elif pygame.K_z in self.keys_pressed and event.key == pygame.K_5:
                     self.change_zoom(4)
+                elif pygame.K_z in self.keys_pressed and event.key == pygame.K_6:
+                    self.change_zoom(5)
+                elif pygame.K_z in self.keys_pressed and event.key == pygame.K_7:
+                    self.change_zoom(6)
+                elif pygame.K_z in self.keys_pressed and event.key == pygame.K_8:
+                    self.change_zoom(7)
                 
                 # D+1 for viewport 1 (800x800)
                 elif pygame.K_d in self.keys_pressed and event.key == pygame.K_1:
