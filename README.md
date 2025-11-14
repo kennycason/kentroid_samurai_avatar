@@ -4,7 +4,10 @@ A VTuber-style avatar application featuring the Kentroid Samurai character with 
 
 ## Screenshots
 
+
 <img src="wide_silent.png" width="48%" alt="Wide viewport - Silent"> <img src="wide_talking.png" width="48%" alt="Wide viewport - Talking">
+
+<img src="wide_explosions.png" width="48%" alt="Wide viewport - Explosions"><img src="wide_emoji_party.png" width="48%" alt="Wide viewport - Emoji Party">
 
 <img src="square_talking.png" width="400" alt="Square viewport - Talking">
 
