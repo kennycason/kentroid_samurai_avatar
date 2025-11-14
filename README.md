@@ -2,6 +2,14 @@
 
 A VTuber-style avatar application featuring the Kentroid Samurai character with voice reactivity and multiple view modes.
 
+## Screenshots
+
+<img src="wide_silent.png" width="400" alt="Wide viewport - Silent"> <img src="wide_talking.png" width="400" alt="Wide viewport - Talking">
+
+<img src="square_talking.png" width="400" alt="Square viewport - Talking">
+
+**Example in action:** [Watch on YouTube](https://www.youtube.com/watch?v=bovZW-hlgkY)
+
 ## Image Assets
 
 The application uses these samurai images:
@@ -96,8 +104,3 @@ To use this as an overlay in OBS Studio:
 **Performance issues:**
 - Lower the FPS in the code (change `clock.tick(60)` to a lower value)
 - Reduce the glow effect complexity
-
-## License
-
-This is a personal project. The Kentroid Samurai artwork is your property.
-
