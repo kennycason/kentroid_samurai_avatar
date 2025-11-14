@@ -92,7 +92,7 @@ class SamuraiPNGTuber:
         self.audio_format = pyaudio.paInt16
         self.audio_channels = 1
         self.audio_rate = 44100
-        self.audio_threshold = 600  # Adjust for sensitivity
+        self.audio_threshold = 300  # Adjust for sensitivity
         
         # Visor glow settings (400x400 sphere on original image)
         self.glow_intensity = 0.0
