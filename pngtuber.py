@@ -10,6 +10,7 @@ import numpy as np
 import math
 import sys
 import random
+import glob
 from PIL import Image
 from pathlib import Path
 
@@ -34,9 +35,13 @@ class SamuraiPNGTuber:
         # Load explosion sprite sheet
         self.load_explosion_sprites()
         
+        # Load emoji images
+        self.load_emoji_images()
+        
         # Effects system
         self.current_effect = None
         self.active_explosions = []
+        self.active_emojis = []
         
         # Zoom settings
         # Multiple zoom levels from full body to extreme close-up
@@ -170,6 +175,26 @@ class SamuraiPNGTuber:
             self.explosion_frames.append(frame)
         
         print(f"Loaded {len(self.explosion_frames)} explosion frames ({frame_width}x{frame_height} each)")
+    
+    def load_emoji_images(self):
+        """Load all emoji images from the emoji directory"""
+        emoji_dir = Path(__file__).parent / "emoji"
+        emoji_paths = glob.glob(str(emoji_dir / "*.png"))
+        
+        self.emoji_images = []
+        for emoji_path in emoji_paths:
+            try:
+                emoji = pygame.image.load(emoji_path).convert_alpha()
+                self.emoji_images.append(emoji)
+                print(f"Loaded emoji: {Path(emoji_path).name}")
+            except Exception as e:
+                print(f"Warning: Could not load emoji {emoji_path}: {e}")
+        
+        print(f"Total emojis loaded: {len(self.emoji_images)}")
+        
+        # Emoji effect settings
+        self.emoji_min_size = 50
+        self.emoji_max_size = 150
         
     def init_audio(self):
         """Initialize PyAudio for microphone input"""
@@ -219,11 +244,13 @@ class SamuraiPNGTuber:
             print(f"Deactivating effect {effect_number}")
             self.current_effect = None
             self.active_explosions.clear()
+            self.active_emojis.clear()
         else:
             # Deactivate current effect and activate new one
             if self.current_effect is not None:
                 print(f"Stopping effect {self.current_effect}")
                 self.active_explosions.clear()
+                self.active_emojis.clear()
             
             print(f"Activating effect {effect_number}")
             self.current_effect = effect_number
@@ -232,11 +259,18 @@ class SamuraiPNGTuber:
             if effect_number == 1:
                 self.effect1_red_phase = 0.0  # Phase for oscillation
                 self.effect1_explosion_timer = 0
+            elif effect_number == 2:
+                self.effect2_spawn_timer = 0
+                # Spawn initial emojis
+                for _ in range(10):
+                    self.spawn_emoji()
     
     def update_effects(self):
         """Update active effects each frame"""
         if self.current_effect == 1:
             self.update_effect_1()
+        elif self.current_effect == 2:
+            self.update_effect_2()
     
     def update_effect_1(self):
         """Update Effect 1: Rage mode with red tint and explosions"""
@@ -274,6 +308,74 @@ class SamuraiPNGTuber:
             if explosion['frame'] >= len(self.explosion_frames):
                 self.active_explosions.remove(explosion)
     
+    def spawn_emoji(self):
+        """Spawn a new emoji with random properties"""
+        if not self.emoji_images:
+            return
+        
+        # Random emoji from loaded images
+        emoji_image = random.choice(self.emoji_images)
+        
+        # Random size between min and max
+        size = random.randint(self.emoji_min_size, self.emoji_max_size)
+        
+        # Random starting position (anywhere on screen)
+        x = random.randint(0, self.width)
+        y = random.randint(0, self.height)
+        
+        # Random velocity (speed and direction)
+        vx = random.uniform(-5, 5)
+        vy = random.uniform(-5, 5)
+        
+        # Random rotation speed (degrees per frame)
+        rotation_speed = random.uniform(-5, 5)
+        
+        # Random flip
+        flip_x = random.choice([True, False])
+        flip_y = random.choice([True, False])
+        
+        emoji = {
+            'image': emoji_image,
+            'x': x,
+            'y': y,
+            'vx': vx,
+            'vy': vy,
+            'size': size,
+            'rotation': 0,
+            'rotation_speed': rotation_speed,
+            'flip_x': flip_x,
+            'flip_y': flip_y
+        }
+        
+        self.active_emojis.append(emoji)
+    
+    def update_effect_2(self):
+        """Update Effect 2: Emoji Party with bouncing emojis"""
+        # Spawn new emojis periodically
+        self.effect2_spawn_timer += 1
+        if self.effect2_spawn_timer >= 30 and len(self.active_emojis) < 20:  # Keep max 20 emojis
+            self.effect2_spawn_timer = 0
+            self.spawn_emoji()
+        
+        # Update all emojis
+        for emoji in self.active_emojis[:]:
+            # Update position
+            emoji['x'] += emoji['vx']
+            emoji['y'] += emoji['vy']
+            
+            # Bounce off edges
+            if emoji['x'] - emoji['size'] // 2 < 0 or emoji['x'] + emoji['size'] // 2 > self.width:
+                emoji['vx'] *= -1
+                emoji['x'] = max(emoji['size'] // 2, min(self.width - emoji['size'] // 2, emoji['x']))
+            
+            if emoji['y'] - emoji['size'] // 2 < 0 or emoji['y'] + emoji['size'] // 2 > self.height:
+                emoji['vy'] *= -1
+                emoji['y'] = max(emoji['size'] // 2, min(self.height - emoji['size'] // 2, emoji['y']))
+            
+            # Update rotation
+            emoji['rotation'] += emoji['rotation_speed']
+            emoji['rotation'] %= 360
+    
     def apply_red_tint(self, surface):
         """Apply red tint overlay to a surface"""
         if self.current_effect == 1 and self.effect1_red_intensity > 0:
@@ -300,6 +402,22 @@ class SamuraiPNGTuber:
                 # Center the explosion at its position
                 rect = frame.get_rect(center=(explosion['x'], explosion['y']))
                 self.screen.blit(frame, rect)
+    
+    def draw_emojis(self):
+        """Draw all active emojis with rotation and flipping"""
+        for emoji in self.active_emojis:
+            # Scale emoji to desired size
+            scaled_emoji = pygame.transform.smoothscale(emoji['image'], (emoji['size'], emoji['size']))
+            
+            # Apply flipping
+            scaled_emoji = pygame.transform.flip(scaled_emoji, emoji['flip_x'], emoji['flip_y'])
+            
+            # Apply rotation
+            rotated_emoji = pygame.transform.rotate(scaled_emoji, emoji['rotation'])
+            
+            # Center the emoji at its position
+            rect = rotated_emoji.get_rect(center=(int(emoji['x']), int(emoji['y'])))
+            self.screen.blit(rotated_emoji, rect)
     
     def get_scaled_image(self):
         """Get the samurai image scaled according to current zoom level"""
@@ -480,6 +598,9 @@ class SamuraiPNGTuber:
         # Draw explosions on top of everything
         self.draw_explosions()
         
+        # Draw emojis on top of everything
+        self.draw_emojis()
+        
         # Draw UI info if enabled
         if self.show_ui:
             self.draw_ui()
@@ -500,11 +621,13 @@ class SamuraiPNGTuber:
         effect_str = f"Effect {self.current_effect}" if self.current_effect else "None"
         if self.current_effect == 1:
             effect_str += f" (RAGE 🔥 Red: {self.effect1_red_intensity:.2f})"
+        elif self.current_effect == 2:
+            effect_str += f" (EMOJI PARTY 🎉 Count: {len(self.active_emojis)})"
         
         texts = [
             f"Zoom: {zoom_name} (Z+1 to Z+5)",
             f"Viewport: {viewport} (D+1/D+2)",
-            f"Effect: {effect_str} (E+1 to toggle)",
+            f"Effect: {effect_str} (E+1/E+2 to toggle)",
             f"Glow: {'🔵 TALKING' if self.glow_intensity > 0.02 else '🔵 IDLE'} ({total_glow:.2f})",
             f"Audio: Vol={self.last_volume:.0f}, Threshold={self.audio_threshold}",
             f"Bob: {self.rock_intensity:.2f} ({pattern_name})",
@@ -601,6 +724,7 @@ class SamuraiPNGTuber:
         print("  D+1: Square viewport (800x800)")
         print("  D+2: Wide viewport (1200x800)")
         print("  E+1: Toggle RAGE effect (red tint + explosions)")
+        print("  E+2: Toggle EMOJI PARTY effect (bouncing emojis)")
         print("  T: Toggle UI text overlay")
         print("  ESC: Quit")
         print("\nSpeak into your microphone to activate the visor glow and talking animation!")
