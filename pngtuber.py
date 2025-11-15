@@ -13,6 +13,7 @@ import random
 import glob
 from PIL import Image
 from pathlib import Path
+from chaos_effect import ChaosEffect
 
 class SamuraiPNGTuber:
     def __init__(self):
@@ -49,6 +50,7 @@ class SamuraiPNGTuber:
         self.current_effect = None
         self.active_explosions = []
         self.active_emojis = []
+        self.chaos_effect = None
         
         # Zoom settings
         # Multiple zoom levels from full body to extreme close-up
@@ -136,7 +138,7 @@ class SamuraiPNGTuber:
         self.frame_count = 0
         
         # UI toggle
-        self.show_ui = True
+        self.show_ui = False
         
         # Initialize audio
         self.init_audio()
@@ -282,12 +284,14 @@ class SamuraiPNGTuber:
             self.current_effect = None
             self.active_explosions.clear()
             self.active_emojis.clear()
+            self.chaos_effect = None
         else:
             # Deactivate current effect and activate new one
             if self.current_effect is not None:
                 print(f"Stopping effect {self.current_effect}")
                 self.active_explosions.clear()
                 self.active_emojis.clear()
+                self.chaos_effect = None
             
             print(f"Activating effect {effect_number}")
             self.current_effect = effect_number
@@ -301,6 +305,10 @@ class SamuraiPNGTuber:
                 # Spawn initial emojis
                 for _ in range(10):
                     self.spawn_emoji()
+            elif effect_number == 3:
+                # Initialize CHAOS effect
+                self.chaos_effect = ChaosEffect(self.width, self.height)
+                print("🌀 CHAOS EFFECT ACTIVATED - MATHEMATICAL MADNESS ENGAGED! 🌀")
     
     def update_effects(self):
         """Update active effects each frame"""
@@ -308,6 +316,9 @@ class SamuraiPNGTuber:
             self.update_effect_1()
         elif self.current_effect == 2:
             self.update_effect_2()
+        elif self.current_effect == 3:
+            if self.chaos_effect:
+                self.chaos_effect.update()
     
     def update_effect_1(self):
         """Update Effect 1: Rage mode with red tint and explosions"""
@@ -754,6 +765,10 @@ class SamuraiPNGTuber:
         # Draw emojis on top of everything
         self.draw_emojis()
         
+        # Draw chaos effect (absolute madness!)
+        if self.current_effect == 3 and self.chaos_effect:
+            self.chaos_effect.draw(self.screen)
+        
         # Draw UI info if enabled
         if self.show_ui:
             self.draw_ui()
@@ -776,6 +791,9 @@ class SamuraiPNGTuber:
             effect_str += f" (RAGE 🔥 Red: {self.effect1_red_intensity:.2f})"
         elif self.current_effect == 2:
             effect_str += f" (EMOJI PARTY 🎉 Count: {len(self.active_emojis)})"
+        elif self.current_effect == 3:
+            particles = len(self.chaos_effect.particles) if self.chaos_effect else 0
+            effect_str += f" (CHAOS 🌀✨💫 Particles: {particles})"
         
         bg_names = {1: "Black", 2: "Rainbow", 3: "Ship 01", 4: "Ship 02", 5: "Crateria", 6: "Brinstar", 7: "Hellway", 8: "Tourian"}
         bg_str = bg_names.get(self.current_background, "Unknown")
@@ -784,7 +802,7 @@ class SamuraiPNGTuber:
             f"Zoom: {zoom_name} (Z+1 to Z+5)",
             f"Viewport: {viewport} (D+1/D+2)",
             f"Background: {bg_str} (B+1 to B+8)",
-            f"Effect: {effect_str} (E+1/E+2 to toggle)",
+            f"Effect: {effect_str} (E+1/E+2/E+3 to toggle)",
             f"Glow: {'🔵 TALKING' if self.glow_intensity > 0.02 else '🔵 IDLE'} ({total_glow:.2f})",
             f"Audio: Vol={self.last_volume:.0f}, Threshold={self.audio_threshold}",
             f"Bob: {self.rock_intensity:.2f} ({pattern_name})",
@@ -875,7 +893,7 @@ class SamuraiPNGTuber:
                 elif pygame.K_b in self.keys_pressed and event.key == pygame.K_8:
                     self.change_background(8)
                 
-                # E+1, E+2, etc. for effects
+                # E+1, E+2, E+3 for effects
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_1:
                     self.activate_effect(1)
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_2:
@@ -908,6 +926,7 @@ class SamuraiPNGTuber:
         print("  B+8: Tourian background")
         print("  E+1: Toggle RAGE effect (red tint + explosions)")
         print("  E+2: Toggle EMOJI PARTY effect (bouncing emojis)")
+        print("  E+3: Toggle CHAOS effect (MATHEMATICAL MADNESS)")
         print("  T: Toggle UI text overlay")
         print("  ESC: Quit")
         print("\nSpeak into your microphone to activate the visor glow and talking animation!")
