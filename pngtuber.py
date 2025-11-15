@@ -38,6 +38,13 @@ class SamuraiPNGTuber:
         # Load emoji images
         self.load_emoji_images()
         
+        # Load background images
+        self.load_background_images()
+        
+        # Background settings
+        self.current_background = 1  # 1=black, 2=rainbow, 3=ship01, 4=ship02, 5=crateria01, 6=brinstar01, 7=hellway01, 8=tourian01
+        self.rainbow_hue = 0.0  # For rainbow background animation
+        
         # Effects system
         self.current_effect = None
         self.active_explosions = []
@@ -90,7 +97,7 @@ class SamuraiPNGTuber:
                 'focus': 'mask'
             }
         ]
-        self.current_zoom = 0
+        self.current_zoom = 1  # Default to Z+2 (face1) instead of Z+1 (full_body)
         
         # Animation settings
         self.rock_angle = 0
@@ -195,6 +202,36 @@ class SamuraiPNGTuber:
         # Emoji effect settings
         self.emoji_min_size = 50
         self.emoji_max_size = 150
+    
+    def load_background_images(self):
+        """Load background images for different scenes"""
+        bg_dir = Path(__file__).parent / "bg"
+        
+        self.bg_images = {}
+        
+        # Define background files to load
+        bg_files = {
+            'ship01': 'samus_ship01.png',
+            'ship02': 'samus_ship02.png',
+            'crateria01': 'crateria01.png',
+            'brinstar01': 'brinstar01.png',
+            'hellway01': 'hellway01.png',
+            'tourian01': 'tourian01.png'
+        }
+        
+        # Load each background
+        for key, filename in bg_files.items():
+            bg_path = bg_dir / filename
+            try:
+                if bg_path.exists():
+                    self.bg_images[key] = pygame.image.load(str(bg_path)).convert()
+                    print(f"Loaded background: {filename}")
+                else:
+                    print(f"Warning: {filename} not found")
+            except Exception as e:
+                print(f"Warning: Could not load {filename}: {e}")
+        
+        print(f"Total backgrounds loaded: {len(self.bg_images)}")
         
     def init_audio(self):
         """Initialize PyAudio for microphone input"""
@@ -419,6 +456,119 @@ class SamuraiPNGTuber:
             rect = rotated_emoji.get_rect(center=(int(emoji['x']), int(emoji['y'])))
             self.screen.blit(rotated_emoji, rect)
     
+    def hsv_to_rgb(self, h, s, v):
+        """Convert HSV color to RGB (values 0-1)"""
+        import colorsys
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        return (int(r * 255), int(g * 255), int(b * 255))
+    
+    def draw_background(self):
+        """Draw the current background"""
+        if self.current_background == 1:
+            # Black background (default)
+            self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 2:
+            # Rainbow background
+            self.draw_rainbow_background()
+        
+        elif self.current_background == 3:
+            # Ship 01 background
+            if 'ship01' in self.bg_images:
+                self.draw_cover_background(self.bg_images['ship01'])
+            else:
+                self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 4:
+            # Ship 02 background
+            if 'ship02' in self.bg_images:
+                self.draw_cover_background(self.bg_images['ship02'])
+            else:
+                self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 5:
+            # Crateria01 background
+            if 'crateria01' in self.bg_images:
+                self.draw_cover_background(self.bg_images['crateria01'])
+            else:
+                self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 6:
+            # Brinstar01 background
+            if 'brinstar01' in self.bg_images:
+                self.draw_cover_background(self.bg_images['brinstar01'])
+            else:
+                self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 7:
+            # Hellway01 background
+            if 'hellway01' in self.bg_images:
+                self.draw_cover_background(self.bg_images['hellway01'])
+            else:
+                self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 8:
+            # Tourian01 background
+            if 'tourian01' in self.bg_images:
+                self.draw_cover_background(self.bg_images['tourian01'])
+            else:
+                self.screen.fill((0, 0, 0))
+    
+    def draw_cover_background(self, bg_image):
+        """Draw background image with cover fit (fills screen without distortion)"""
+        # Get image dimensions
+        img_width = bg_image.get_width()
+        img_height = bg_image.get_height()
+        
+        # Calculate scale to cover the screen
+        scale_w = self.width / img_width
+        scale_h = self.height / img_height
+        scale = max(scale_w, scale_h)  # Use max to cover (not contain)
+        
+        # Calculate new dimensions
+        new_width = int(img_width * scale)
+        new_height = int(img_height * scale)
+        
+        # Scale the image
+        scaled_bg = pygame.transform.smoothscale(bg_image, (new_width, new_height))
+        
+        # Center the image
+        x = (self.width - new_width) // 2
+        y = (self.height - new_height) // 2
+        
+        self.screen.blit(scaled_bg, (x, y))
+    
+    def draw_rainbow_background(self):
+        """Draw a smooth rainbow gradient background"""
+        # Update rainbow hue
+        self.rainbow_hue += 0.003  # Slow smooth progression
+        if self.rainbow_hue > 1.0:
+            self.rainbow_hue = 0.0
+        
+        # Create a smooth gradient across the screen
+        for y in range(self.height):
+            # Calculate hue based on y position and time
+            hue = (self.rainbow_hue + (y / self.height) * 0.3) % 1.0
+            color = self.hsv_to_rgb(hue, 0.6, 0.8)  # Medium saturation and brightness
+            
+            pygame.draw.line(self.screen, color, (0, y), (self.width, y))
+    
+    def change_background(self, bg_number):
+        """Change the background"""
+        if 1 <= bg_number <= 8:
+            self.current_background = bg_number
+            bg_names = {
+                1: "Black",
+                2: "Rainbow",
+                3: "Samus Ship 01",
+                4: "Samus Ship 02",
+                5: "Crateria",
+                6: "Brinstar",
+                7: "Hellway",
+                8: "Tourian"
+            }
+            print(f"Changed background to: {bg_names[bg_number]}")
+    
     def get_scaled_image(self):
         """Get the samurai image scaled according to current zoom level"""
         zoom = self.zoom_levels[self.current_zoom]
@@ -446,6 +596,9 @@ class SamuraiPNGTuber:
         # Scale the 400x400 glow to current image scale (fixed size, no pulsing)
         glow_radius = int((self.glow_base_size / 2) * scale * 0.95)
         
+        # First, draw a solid black circle directly on the screen to block the background
+        pygame.draw.circle(surface, (0, 0, 0), visor_pos, glow_radius)
+        
         # Determine color based on talking intensity
         # Idle: Blue -> Low volume: Cyan -> Medium: Green -> High: Pink/Magenta -> Very High: Purple
         talking_intensity = self.glow_intensity  # 0.0 to 1.0
@@ -466,17 +619,17 @@ class SamuraiPNGTuber:
             # Very high volume: Purple
             r, g, b = 200, 0, 255
         
-        # Create glow surface
+        # Create glow surface with transparency
         glow_size = glow_radius * 2
         glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        center = (glow_radius, glow_radius)
         
-        # Draw single solid circle with transparency based on intensity
+        # Draw the glowing circle with transparency
         alpha = int(total_intensity * 255)
         color = (r, g, b, alpha)
-        center = (glow_radius, glow_radius)
         pygame.draw.circle(glow_surface, color, center, glow_radius)
         
-        # Blit glow surface
+        # Blit glow surface on top of the black circle
         glow_rect = glow_surface.get_rect(center=visor_pos)
         surface.blit(glow_surface, glow_rect)
         
@@ -490,8 +643,8 @@ class SamuraiPNGTuber:
         # Update active effects
         self.update_effects()
         
-        # Clear screen with black background
-        self.screen.fill((0, 0, 0))
+        # Draw background (replaces screen.fill)
+        self.draw_background()
         
         # Get scaled image
         scaled_image = self.get_scaled_image()
@@ -624,9 +777,13 @@ class SamuraiPNGTuber:
         elif self.current_effect == 2:
             effect_str += f" (EMOJI PARTY 🎉 Count: {len(self.active_emojis)})"
         
+        bg_names = {1: "Black", 2: "Rainbow", 3: "Ship 01", 4: "Ship 02", 5: "Crateria", 6: "Brinstar", 7: "Hellway", 8: "Tourian"}
+        bg_str = bg_names.get(self.current_background, "Unknown")
+        
         texts = [
             f"Zoom: {zoom_name} (Z+1 to Z+5)",
             f"Viewport: {viewport} (D+1/D+2)",
+            f"Background: {bg_str} (B+1 to B+8)",
             f"Effect: {effect_str} (E+1/E+2 to toggle)",
             f"Glow: {'🔵 TALKING' if self.glow_intensity > 0.02 else '🔵 IDLE'} ({total_glow:.2f})",
             f"Audio: Vol={self.last_volume:.0f}, Threshold={self.audio_threshold}",
@@ -700,6 +857,24 @@ class SamuraiPNGTuber:
                 elif pygame.K_d in self.keys_pressed and event.key == pygame.K_2:
                     self.change_viewport(1)
                 
+                # B+1 through B+8 for backgrounds
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_1:
+                    self.change_background(1)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_2:
+                    self.change_background(2)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_3:
+                    self.change_background(3)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_4:
+                    self.change_background(4)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_5:
+                    self.change_background(5)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_6:
+                    self.change_background(6)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_7:
+                    self.change_background(7)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_8:
+                    self.change_background(8)
+                
                 # E+1, E+2, etc. for effects
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_1:
                     self.activate_effect(1)
@@ -723,6 +898,14 @@ class SamuraiPNGTuber:
         print("  Z+5: Extreme zoom (most zoomed)")
         print("  D+1: Square viewport (800x800)")
         print("  D+2: Wide viewport (1200x800)")
+        print("  B+1: Black background")
+        print("  B+2: Rainbow background")
+        print("  B+3: Samus Ship 01 background")
+        print("  B+4: Samus Ship 02 background")
+        print("  B+5: Crateria background")
+        print("  B+6: Brinstar background")
+        print("  B+7: Hellway background")
+        print("  B+8: Tourian background")
         print("  E+1: Toggle RAGE effect (red tint + explosions)")
         print("  E+2: Toggle EMOJI PARTY effect (bouncing emojis)")
         print("  T: Toggle UI text overlay")
