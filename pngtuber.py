@@ -11,13 +11,17 @@ import math
 import sys
 import random
 import glob
+import argparse
 from PIL import Image
 from pathlib import Path
 from chaos_effect import ChaosEffect
 
 class SamuraiPNGTuber:
-    def __init__(self):
+    def __init__(self, audio_device_index=None):
         pygame.init()
+        
+        # Audio device selection
+        self.audio_device_index = audio_device_index
         
         # Window settings
         self.viewport_presets = [
@@ -43,14 +47,14 @@ class SamuraiPNGTuber:
         self.load_background_images()
         
         # Background settings
-        self.current_background = 1  # 1=black, 2=rainbow, 3=ship01, 4=ship02, 5=crateria01, 6=brinstar01, 7=hellway01, 8=tourian01
+        self.current_background = 1  # 1=black, 2=rainbow, 3=ship01, 4=ship02, 5=crateria01, 6=brinstar01, 7=hellway01, 8=tourian01, 9=chaos
         self.rainbow_hue = 0.0  # For rainbow background animation
+        self.chaos_effect = None  # For chaos background
         
         # Effects system
         self.current_effect = None
         self.active_explosions = []
         self.active_emojis = []
-        self.chaos_effect = None
         
         # Zoom settings
         # Multiple zoom levels from full body to extreme close-up
@@ -239,11 +243,20 @@ class SamuraiPNGTuber:
         """Initialize PyAudio for microphone input"""
         try:
             self.audio = pyaudio.PyAudio()
+            
+            # If device index specified, get device info
+            if self.audio_device_index is not None:
+                device_info = self.audio.get_device_info_by_index(self.audio_device_index)
+                print(f"Using audio device: {device_info['name']} (index {self.audio_device_index})")
+            else:
+                print("Using default audio input device")
+            
             self.audio_stream = self.audio.open(
                 format=self.audio_format,
                 channels=self.audio_channels,
                 rate=self.audio_rate,
                 input=True,
+                input_device_index=self.audio_device_index,
                 frames_per_buffer=self.audio_chunk,
                 stream_callback=self.audio_callback
             )
@@ -284,14 +297,12 @@ class SamuraiPNGTuber:
             self.current_effect = None
             self.active_explosions.clear()
             self.active_emojis.clear()
-            self.chaos_effect = None
         else:
             # Deactivate current effect and activate new one
             if self.current_effect is not None:
                 print(f"Stopping effect {self.current_effect}")
                 self.active_explosions.clear()
                 self.active_emojis.clear()
-                self.chaos_effect = None
             
             print(f"Activating effect {effect_number}")
             self.current_effect = effect_number
@@ -305,10 +316,6 @@ class SamuraiPNGTuber:
                 # Spawn initial emojis
                 for _ in range(10):
                     self.spawn_emoji()
-            elif effect_number == 3:
-                # Initialize CHAOS effect
-                self.chaos_effect = ChaosEffect(self.width, self.height)
-                print("🌀 CHAOS EFFECT ACTIVATED - MATHEMATICAL MADNESS ENGAGED! 🌀")
     
     def update_effects(self):
         """Update active effects each frame"""
@@ -316,9 +323,6 @@ class SamuraiPNGTuber:
             self.update_effect_1()
         elif self.current_effect == 2:
             self.update_effect_2()
-        elif self.current_effect == 3:
-            if self.chaos_effect:
-                self.chaos_effect.update()
     
     def update_effect_1(self):
         """Update Effect 1: Rage mode with red tint and explosions"""
@@ -524,6 +528,16 @@ class SamuraiPNGTuber:
                 self.draw_cover_background(self.bg_images['tourian01'])
             else:
                 self.screen.fill((0, 0, 0))
+        
+        elif self.current_background == 9:
+            # Chaos background - mathematical madness!
+            if self.chaos_effect:
+                # Fill with black first, then draw chaos on top
+                self.screen.fill((0, 0, 0))
+                self.chaos_effect.update()
+                self.chaos_effect.draw(self.screen)
+            else:
+                self.screen.fill((0, 0, 0))
     
     def draw_cover_background(self, bg_image):
         """Draw background image with cover fit (fills screen without distortion)"""
@@ -566,8 +580,15 @@ class SamuraiPNGTuber:
     
     def change_background(self, bg_number):
         """Change the background"""
-        if 1 <= bg_number <= 8:
+        if 1 <= bg_number <= 9:
             self.current_background = bg_number
+            
+            # Initialize chaos effect if switching to chaos background
+            if bg_number == 9:
+                if not self.chaos_effect:
+                    self.chaos_effect = ChaosEffect(self.width, self.height)
+                    print("🌀 CHAOS BACKGROUND ACTIVATED - MATHEMATICAL MADNESS ENGAGED! 🌀")
+            
             bg_names = {
                 1: "Black",
                 2: "Rainbow",
@@ -576,7 +597,8 @@ class SamuraiPNGTuber:
                 5: "Crateria",
                 6: "Brinstar",
                 7: "Hellway",
-                8: "Tourian"
+                8: "Tourian",
+                9: "Chaos (Mathematical Madness)"
             }
             print(f"Changed background to: {bg_names[bg_number]}")
     
@@ -765,10 +787,6 @@ class SamuraiPNGTuber:
         # Draw emojis on top of everything
         self.draw_emojis()
         
-        # Draw chaos effect (absolute madness!)
-        if self.current_effect == 3 and self.chaos_effect:
-            self.chaos_effect.draw(self.screen)
-        
         # Draw UI info if enabled
         if self.show_ui:
             self.draw_ui()
@@ -791,18 +809,20 @@ class SamuraiPNGTuber:
             effect_str += f" (RAGE 🔥 Red: {self.effect1_red_intensity:.2f})"
         elif self.current_effect == 2:
             effect_str += f" (EMOJI PARTY 🎉 Count: {len(self.active_emojis)})"
-        elif self.current_effect == 3:
-            particles = len(self.chaos_effect.particles) if self.chaos_effect else 0
-            effect_str += f" (CHAOS 🌀✨💫 Particles: {particles})"
         
-        bg_names = {1: "Black", 2: "Rainbow", 3: "Ship 01", 4: "Ship 02", 5: "Crateria", 6: "Brinstar", 7: "Hellway", 8: "Tourian"}
+        bg_names = {1: "Black", 2: "Rainbow", 3: "Ship 01", 4: "Ship 02", 5: "Crateria", 6: "Brinstar", 7: "Hellway", 8: "Tourian", 9: "Chaos"}
         bg_str = bg_names.get(self.current_background, "Unknown")
+        
+        # Add particle count for chaos background
+        if self.current_background == 9 and self.chaos_effect:
+            particles = len(self.chaos_effect.particles)
+            bg_str += f" 🌀✨💫 ({particles} particles)"
         
         texts = [
             f"Zoom: {zoom_name} (Z+1 to Z+5)",
             f"Viewport: {viewport} (D+1/D+2)",
-            f"Background: {bg_str} (B+1 to B+8)",
-            f"Effect: {effect_str} (E+1/E+2/E+3 to toggle)",
+            f"Background: {bg_str} (B+1 to B+9)",
+            f"Effect: {effect_str} (E+1/E+2 to toggle)",
             f"Glow: {'🔵 TALKING' if self.glow_intensity > 0.02 else '🔵 IDLE'} ({total_glow:.2f})",
             f"Audio: Vol={self.last_volume:.0f}, Threshold={self.audio_threshold}",
             f"Bob: {self.rock_intensity:.2f} ({pattern_name})",
@@ -875,7 +895,7 @@ class SamuraiPNGTuber:
                 elif pygame.K_d in self.keys_pressed and event.key == pygame.K_2:
                     self.change_viewport(1)
                 
-                # B+1 through B+8 for backgrounds
+                # B+1 through B+9 for backgrounds
                 elif pygame.K_b in self.keys_pressed and event.key == pygame.K_1:
                     self.change_background(1)
                 elif pygame.K_b in self.keys_pressed and event.key == pygame.K_2:
@@ -892,14 +912,14 @@ class SamuraiPNGTuber:
                     self.change_background(7)
                 elif pygame.K_b in self.keys_pressed and event.key == pygame.K_8:
                     self.change_background(8)
+                elif pygame.K_b in self.keys_pressed and event.key == pygame.K_9:
+                    self.change_background(9)
                 
-                # E+1, E+2, E+3 for effects
+                # E+1, E+2 for effects
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_1:
                     self.activate_effect(1)
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_2:
                     self.activate_effect(2)
-                elif pygame.K_e in self.keys_pressed and event.key == pygame.K_3:
-                    self.activate_effect(3)
             
             elif event.type == pygame.KEYUP:
                 if event.key in self.keys_pressed:
@@ -924,9 +944,9 @@ class SamuraiPNGTuber:
         print("  B+6: Brinstar background")
         print("  B+7: Hellway background")
         print("  B+8: Tourian background")
+        print("  B+9: CHAOS background (MATHEMATICAL MADNESS 🌀✨💫)")
         print("  E+1: Toggle RAGE effect (red tint + explosions)")
         print("  E+2: Toggle EMOJI PARTY effect (bouncing emojis)")
-        print("  E+3: Toggle CHAOS effect (MATHEMATICAL MADNESS)")
         print("  T: Toggle UI text overlay")
         print("  ESC: Quit")
         print("\nSpeak into your microphone to activate the visor glow and talking animation!")
@@ -950,9 +970,60 @@ class SamuraiPNGTuber:
         pygame.quit()
         print("PNG-Tuber closed.")
 
+def list_audio_devices():
+    """List all available audio input devices"""
+    audio = pyaudio.PyAudio()
+    print("\n" + "=" * 60)
+    print("AVAILABLE AUDIO INPUT DEVICES:")
+    print("=" * 60)
+    
+    device_count = audio.get_device_count()
+    input_devices = []
+    
+    for i in range(device_count):
+        try:
+            device_info = audio.get_device_info_by_index(i)
+            # Only show input devices
+            if device_info['maxInputChannels'] > 0:
+                input_devices.append((i, device_info))
+                print(f"\nDevice Index: {i}")
+                print(f"  Name: {device_info['name']}")
+                print(f"  Channels: {device_info['maxInputChannels']}")
+                print(f"  Sample Rate: {int(device_info['defaultSampleRate'])} Hz")
+                print(f"  Host API: {audio.get_host_api_info_by_index(device_info['hostApi'])['name']}")
+        except Exception as e:
+            print(f"Error reading device {i}: {e}")
+    
+    print("\n" + "=" * 60)
+    print(f"Total input devices found: {len(input_devices)}")
+    print("=" * 60)
+    print("\nTo use a specific device, run:")
+    print("  python pngtuber.py --device <index>")
+    print("\nExample:")
+    print("  python pngtuber.py --device 3")
+    print()
+    
+    audio.terminate()
+
+
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Kentroid Samurai PNG-Tuber')
+    parser.add_argument('--list-devices', action='store_true',
+                       help='List all available audio input devices and exit')
+    parser.add_argument('--device', type=int, default=None,
+                       help='Audio input device index to use (see --list-devices)')
+    
+    args = parser.parse_args()
+    
+    # If list devices flag is set, list and exit
+    if args.list_devices:
+        list_audio_devices()
+        sys.exit(0)
+    
+    # Run the application
     try:
-        app = SamuraiPNGTuber()
+        app = SamuraiPNGTuber(audio_device_index=args.device)
         app.run()
     except Exception as e:
         print(f"Error: {e}")

@@ -15,15 +15,27 @@ A VTuber-style avatar application featuring the Kentroid Samurai character with 
 
 ## Features
 
-- **Voice Reactivity**: Neon blue visor glow that pulses when you speak
-- **Multiple Zoom Levels**:
-  - Zoom 1 (Z+1): Full body view
-  - Zoom 2 (Z+2): Face/head zoom (centered on visor area)
+- **Voice Reactivity**: Dynamic visor glow that changes color based on audio intensity
+  - Idle: Deep blue
+  - Low volume: Cyan
+  - Medium: Green
+  - High: Pink/Magenta
+  - Very high: Purple
+- **Multiple Zoom Levels** (Z+1 to Z+7):
+  - Zoom 1: Full body view
+  - Zoom 2-7: Progressive face/head zooms (increasingly closer)
 - **Viewport Dimensions**:
   - Dimension 1 (D+1): 800x800 square
   - Dimension 2 (D+2): 1200x800 widescreen
-- **Smooth Animations**: Subtle head rocking motion
-- **Microphone Input**: Real-time audio detection
+- **Backgrounds** (B+1 to B+9):
+  - Black, Rainbow, Samus Ship (2 variants)
+  - Crateria, Brinstar, Hellway, Tourian
+  - **CHAOS** - Mathematical madness background 🌀✨💫
+- **Visual Effects**:
+  - Effect 1 (E+1): RAGE mode (red tint + explosions)
+  - Effect 2 (E+2): EMOJI PARTY (bouncing emojis)
+- **Smooth Animations**: Dynamic head rocking/bobbing patterns
+- **Microphone Input**: Real-time audio detection with device selection
 
 ## Installation
 
@@ -36,18 +48,54 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Basic Usage
+
 Run the application:
 
 ```bash
 python pngtuber.py
 ```
 
+### Audio Device Selection
+
+List available audio input devices:
+
+```bash
+python pngtuber.py --list-devices
+```
+
+Use a specific audio device:
+
+```bash
+python pngtuber.py --device <index>
+```
+
+Example:
+```bash
+python pngtuber.py --device 3
+```
+
 ### Controls
 
-- **Z + 1**: Switch to full body zoom
-- **Z + 2**: Switch to face zoom
-- **D + 1**: Switch to square viewport (800x800)
-- **D + 2**: Switch to wide viewport (1200x800)
+**Zoom Levels:**
+- **Z + 1-7**: Switch between zoom levels (1=full body, 2-7=progressive face zooms)
+
+**Viewport:**
+- **D + 1**: Square viewport (800x800)
+- **D + 2**: Wide viewport (1200x800)
+
+**Backgrounds:**
+- **B + 1**: Black background
+- **B + 2**: Rainbow background
+- **B + 3-8**: Metroid-themed backgrounds (Ship, Crateria, Brinstar, Hellway, Tourian)
+- **B + 9**: CHAOS background (Mathematical madness! 🌀)
+
+**Effects:**
+- **E + 1**: Toggle RAGE effect (red tint + explosions)
+- **E + 2**: Toggle EMOJI PARTY effect (bouncing emojis)
+
+**Other:**
+- **T**: Toggle UI text overlay
 - **ESC**: Quit application
 
 ### Adjusting Settings
