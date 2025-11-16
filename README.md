@@ -108,11 +108,28 @@ You can modify these settings in `pngtuber.py`:
 - **Rock animation**: Adjust `max_rock_angle` and `rock_speed`
 - **Glow effect**: Modify glow colors and intensity
 
+## Building as a Mac App
+
+You can package the PNG-Tuber as a standalone macOS `.app` bundle:
+
+```bash
+# Install py2app (already in requirements.txt)
+pip install py2app
+
+# Build the app
+python setup.py py2app
+
+# The app will be in the dist/ folder
+open dist/pngtuber.app
+```
+
+See **[BUILD_APP.md](BUILD_APP.md)** for detailed instructions, troubleshooting, and advanced options.
+
 ## Use with OBS
 
 To use this as an overlay in OBS Studio:
 
-1. Run the PNG-Tuber application
+1. Run the PNG-Tuber application (from command line or as a Mac app)
 2. In OBS, add a "Window Capture" source
 3. Select the PNG-Tuber window
 
