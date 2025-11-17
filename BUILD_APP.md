@@ -10,8 +10,8 @@ Make sure you have the virtual environment set up and all dependencies installed
 # Activate your virtual environment
 source venv/bin/activate
 
-# Install py2app
-pip install py2app
+# Install 
+pip install -r requirements.txt
 ```
 
 ## Building the App

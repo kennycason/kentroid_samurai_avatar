@@ -12,6 +12,7 @@ import sys
 import random
 import glob
 import argparse
+import json
 from PIL import Image
 from pathlib import Path
 from chaos_effect import ChaosEffect
@@ -20,15 +21,27 @@ class SamuraiPNGTuber:
     def __init__(self, audio_device_index=None):
         pygame.init()
         
-        # Audio device selection
-        self.audio_device_index = audio_device_index
+        # Config file path
+        self.config_path = Path.home() / ".kentroid_samurai_avatar.json"
+        
+        # Load saved config
+        config = self.load_config()
+        
+        # Audio device selection (CLI arg overrides config)
+        if audio_device_index is not None:
+            self.audio_device_index = audio_device_index
+        else:
+            self.audio_device_index = config.get('audio_device_index', None)
         
         # Window settings
         self.viewport_presets = [
-            (800, 800),   # d+1: Square viewport
-            (1200, 800)   # d+2: Wide viewport
+            (800, 800),    # d+1: Square viewport
+            (1200, 800),   # d+2: Wide viewport
+            (1920, 1080)   # d+3: Full HD viewport (OBS-optimized with 100px lower position)
         ]
-        self.current_viewport = 0
+        self.current_viewport = config.get('viewport', 0)
+        self.viewport_x_offset = config.get('viewport_x_offset', 0)  # Manual X offset for fine-tuning position (arrow keys)
+        self.viewport_y_offset = config.get('viewport_y_offset', 0)  # Manual Y offset for fine-tuning position (arrow keys)
         self.width, self.height = self.viewport_presets[self.current_viewport]
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Kentroid Samurai PNG-Tuber")
@@ -47,14 +60,25 @@ class SamuraiPNGTuber:
         self.load_background_images()
         
         # Background settings
-        self.current_background = 1  # 1=black, 2=rainbow, 3=ship01, 4=ship02, 5=crateria01, 6=brinstar01, 7=hellway01, 8=tourian01, 9=chaos
+        self.current_background = config.get('background', 1)  # 1=black, 2=rainbow, 3=ship01, 4=ship02, 5=crateria01, 6=brinstar01, 7=hellway01, 8=tourian01, 9=chaos
         self.rainbow_hue = 0.0  # For rainbow background animation
         self.chaos_effect = None  # For chaos background
+        
+        # Initialize chaos effect if background is chaos
+        if self.current_background == 9:
+            self.chaos_effect = ChaosEffect(self.width, self.height)
         
         # Effects system
         self.current_effect = None
         self.active_explosions = []
         self.active_emojis = []
+        
+        # Effect 3: Psychedelic color shift
+        self.effect3_hue_offset = 0.0
+        self.effect3_time = 0
+        self.effect3_pattern_index = 0  # Current pattern
+        self.effect3_pattern_timer = 0  # Time in current pattern
+        self.effect3_pattern_duration = 300  # Frames per pattern (5 seconds at 60fps)
         
         # Zoom settings
         # Multiple zoom levels from full body to extreme close-up
@@ -71,6 +95,21 @@ class SamuraiPNGTuber:
                 'name': 'full_body',
                 'scale': None,  # Will calculate to fit window
                 'focus': 'center'  # Focus on image center
+            },
+            {
+                'name': 'mid_body1',
+                'scale': 0.4,
+                'focus': 'mask'  # Intermediate zoom - focus on mask
+            },
+            {
+                'name': 'mid_body2',
+                'scale': 0.6,
+                'focus': 'mask'  # Intermediate zoom
+            },
+            {
+                'name': 'mid_body3',
+                'scale': 0.8,
+                'focus': 'mask'  # Intermediate zoom
             },
             {
                 'name': 'face1',
@@ -103,7 +142,7 @@ class SamuraiPNGTuber:
                 'focus': 'mask'
             }
         ]
-        self.current_zoom = 1  # Default to Z+2 (face1) instead of Z+1 (full_body)
+        self.current_zoom = config.get('zoom', 4)  # Default to Z+5 (face1, was Z+2)
         
         # Animation settings
         self.rock_angle = 0
@@ -153,6 +192,43 @@ class SamuraiPNGTuber:
         
         # Key states for combo detection
         self.keys_pressed = set()
+    
+    def load_config(self):
+        """Load configuration from JSON file"""
+        try:
+            if self.config_path.exists():
+                with open(self.config_path, 'r') as f:
+                    config = json.load(f)
+                    print(f"Loaded config from {self.config_path}")
+                    return config
+        except Exception as e:
+            print(f"Could not load config: {e}")
+        
+        # Return defaults if config doesn't exist or fails to load
+        return {
+            'viewport': 0,
+            'zoom': 4,  # Z+5: face1 - good default zoom
+            'background': 1,
+            'viewport_x_offset': 0,
+            'viewport_y_offset': 0,
+            'audio_device_index': None
+        }
+    
+    def save_config(self):
+        """Save current configuration to JSON file"""
+        try:
+            config = {
+                'viewport': self.current_viewport,
+                'zoom': self.current_zoom,
+                'background': self.current_background,
+                'viewport_x_offset': self.viewport_x_offset,
+                'viewport_y_offset': self.viewport_y_offset,
+                'audio_device_index': self.audio_device_index
+            }
+            with open(self.config_path, 'w') as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            print(f"Could not save config: {e}")
         
     def load_image(self):
         """Load and prepare the samurai image"""
@@ -316,6 +392,12 @@ class SamuraiPNGTuber:
                 # Spawn initial emojis
                 for _ in range(10):
                     self.spawn_emoji()
+            elif effect_number == 3:
+                self.effect3_hue_offset = 0.0
+                self.effect3_time = 0
+                self.effect3_pattern_index = 0
+                self.effect3_pattern_timer = 0
+                print("🌈 PSYCHEDELIC MODE ACTIVATED - NEON DREAMS ENGAGED! 🌈")
     
     def update_effects(self):
         """Update active effects each frame"""
@@ -323,6 +405,8 @@ class SamuraiPNGTuber:
             self.update_effect_1()
         elif self.current_effect == 2:
             self.update_effect_2()
+        elif self.current_effect == 3:
+            self.update_effect_3()
     
     def update_effect_1(self):
         """Update Effect 1: Rage mode with red tint and explosions"""
@@ -428,6 +512,24 @@ class SamuraiPNGTuber:
             emoji['rotation'] += emoji['rotation_speed']
             emoji['rotation'] %= 360
     
+    def update_effect_3(self):
+        """Update Effect 3: Psychedelic color transformation"""
+        # Smoothly cycle through hue spectrum
+        self.effect3_hue_offset += 2.0  # Degrees per frame
+        self.effect3_hue_offset %= 360
+        
+        # Increment time for wave patterns
+        self.effect3_time += 1
+        
+        # Cycle through patterns
+        self.effect3_pattern_timer += 1
+        if self.effect3_pattern_timer >= self.effect3_pattern_duration:
+            self.effect3_pattern_timer = 0
+            self.effect3_pattern_index = (self.effect3_pattern_index + 1) % 8  # 8 different patterns
+            pattern_names = ["Horizontal Waves", "Vertical Waves", "Diagonal Scan", "Radial Burst", 
+                           "Checkerboard", "Glitch Bars", "Spiral", "Plasma"]
+            print(f"🌈 Pattern switched to: {pattern_names[self.effect3_pattern_index]}")
+    
     def apply_red_tint(self, surface):
         """Apply red tint overlay to a surface"""
         if self.current_effect == 1 and self.effect1_red_intensity > 0:
@@ -437,6 +539,123 @@ class SamuraiPNGTuber:
             red_overlay.fill((255, 0, 0, alpha))
             surface.blit(red_overlay, (0, 0))
         return surface
+    
+    def apply_psychedelic_effect(self, surface):
+        """Apply psychedelic color transformation to a surface (Effect 3)"""
+        if self.current_effect != 3:
+            return surface
+        
+        # Create a copy to avoid modifying original
+        width, height = surface.get_size()
+        effect_surface = surface.copy()
+        
+        # Base color layers (always applied)
+        overlay1 = pygame.Surface((width, height), pygame.SRCALPHA)
+        hue = self.effect3_hue_offset
+        color1 = self.hsv_to_rgb(hue, 0.6, 1.0)
+        overlay1.fill((*color1, 80))
+        effect_surface.blit(overlay1, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+        
+        # Apply pattern-specific effects
+        pattern_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        
+        if self.effect3_pattern_index == 0:
+            # Horizontal Waves (original)
+            for y in range(0, height, 4):
+                wave_offset = math.sin((y * 0.02) + (self.effect3_time * 0.05))
+                wave_hue = (self.effect3_hue_offset + wave_offset * 60) % 360
+                wave_color = self.hsv_to_rgb(wave_hue, 0.8, 0.9)
+                wave_alpha = int(abs(wave_offset) * 40)
+                pygame.draw.line(pattern_surface, (*wave_color, wave_alpha), 
+                               (0, y), (width, y), 4)
+        
+        elif self.effect3_pattern_index == 1:
+            # Vertical Waves
+            for x in range(0, width, 4):
+                wave_offset = math.sin((x * 0.02) + (self.effect3_time * 0.05))
+                wave_hue = (self.effect3_hue_offset + wave_offset * 60) % 360
+                wave_color = self.hsv_to_rgb(wave_hue, 0.8, 0.9)
+                wave_alpha = int(abs(wave_offset) * 40)
+                pygame.draw.line(pattern_surface, (*wave_color, wave_alpha), 
+                               (x, 0), (x, height), 4)
+        
+        elif self.effect3_pattern_index == 2:
+            # Diagonal Scan Lines
+            for i in range(-height, width, 8):
+                offset = (i + self.effect3_time * 2) % (width + height)
+                wave_hue = (self.effect3_hue_offset + (offset * 0.5)) % 360
+                wave_color = self.hsv_to_rgb(wave_hue, 0.9, 1.0)
+                pygame.draw.line(pattern_surface, (*wave_color, 60), 
+                               (offset, 0), (offset - height, height), 3)
+        
+        elif self.effect3_pattern_index == 3:
+            # Radial Burst
+            center_x, center_y = width // 2, height // 2
+            for angle in range(0, 360, 10):
+                angle_rad = math.radians(angle + self.effect3_time * 2)
+                radius = min(width, height)
+                end_x = center_x + math.cos(angle_rad) * radius
+                end_y = center_y + math.sin(angle_rad) * radius
+                wave_hue = (self.effect3_hue_offset + angle) % 360
+                wave_color = self.hsv_to_rgb(wave_hue, 0.8, 0.9)
+                pygame.draw.line(pattern_surface, (*wave_color, 50), 
+                               (center_x, center_y), (end_x, end_y), 2)
+        
+        elif self.effect3_pattern_index == 4:
+            # Checkerboard
+            checker_size = 20
+            for y in range(0, height, checker_size):
+                for x in range(0, width, checker_size):
+                    if ((x // checker_size) + (y // checker_size) + (self.effect3_time // 10)) % 2:
+                        checker_hue = (self.effect3_hue_offset + x + y) % 360
+                        checker_color = self.hsv_to_rgb(checker_hue, 0.7, 0.8)
+                        pygame.draw.rect(pattern_surface, (*checker_color, 70), 
+                                       (x, y, checker_size, checker_size))
+        
+        elif self.effect3_pattern_index == 5:
+            # Glitch Bars
+            for i in range(10):
+                bar_y = (i * height // 10 + self.effect3_time * (i % 3 + 1)) % height
+                bar_height = random.randint(10, 40)
+                bar_hue = (self.effect3_hue_offset + i * 36) % 360
+                bar_color = self.hsv_to_rgb(bar_hue, 1.0, 1.0)
+                pygame.draw.rect(pattern_surface, (*bar_color, 80), 
+                               (0, bar_y, width, bar_height))
+        
+        elif self.effect3_pattern_index == 6:
+            # Spiral
+            center_x, center_y = width // 2, height // 2
+            for i in range(0, 360, 5):
+                angle = math.radians(i + self.effect3_time * 3)
+                radius = (i / 360.0) * min(width, height) // 2
+                x = center_x + math.cos(angle) * radius
+                y = center_y + math.sin(angle) * radius
+                spiral_hue = (self.effect3_hue_offset + i) % 360
+                spiral_color = self.hsv_to_rgb(spiral_hue, 0.9, 1.0)
+                if i > 0:
+                    prev_angle = math.radians(i - 5 + self.effect3_time * 3)
+                    prev_radius = ((i - 5) / 360.0) * min(width, height) // 2
+                    prev_x = center_x + math.cos(prev_angle) * prev_radius
+                    prev_y = center_y + math.sin(prev_angle) * prev_radius
+                    pygame.draw.line(pattern_surface, (*spiral_color, 60), 
+                                   (prev_x, prev_y), (x, y), 3)
+        
+        elif self.effect3_pattern_index == 7:
+            # Plasma Effect
+            for y in range(0, height, 6):
+                for x in range(0, width, 6):
+                    plasma_val = math.sin(x * 0.02 + self.effect3_time * 0.05)
+                    plasma_val += math.sin(y * 0.02 + self.effect3_time * 0.05)
+                    plasma_val += math.sin((x + y) * 0.01 + self.effect3_time * 0.05)
+                    plasma_hue = (self.effect3_hue_offset + plasma_val * 50) % 360
+                    plasma_color = self.hsv_to_rgb(plasma_hue, 0.8, 0.9)
+                    plasma_alpha = int((plasma_val + 3) / 6 * 60)
+                    pygame.draw.rect(pattern_surface, (*plasma_color, plasma_alpha), 
+                                   (x, y, 6, 6))
+        
+        effect_surface.blit(pattern_surface, (0, 0), special_flags=pygame.BLEND_RGB_ADD)
+        
+        return effect_surface
     
     def draw_explosions(self):
         """Draw all active explosions"""
@@ -601,6 +820,7 @@ class SamuraiPNGTuber:
                 9: "Chaos (Mathematical Madness)"
             }
             print(f"Changed background to: {bg_names[bg_number]}")
+            self.save_config()
     
     def get_scaled_image(self):
         """Get the samurai image scaled according to current zoom level"""
@@ -694,14 +914,14 @@ class SamuraiPNGTuber:
         # Calculate where to position the image on screen
         if zoom['focus'] == 'center':
             # Full body: center the entire image
-            image_x = self.width // 2
-            image_y = self.height // 2
+            image_x = self.width // 2 + self.viewport_x_offset
+            image_y = self.height // 2 + self.viewport_y_offset
         else:
             # Zoomed views: position so mask center is at screen center
             mask_x_scaled = self.mask_center_original[0] * scale
             mask_y_scaled = self.mask_center_original[1] * scale
-            image_x = self.width // 2 - mask_x_scaled + (scaled_image.get_width() // 2)
-            image_y = self.height // 2 - mask_y_scaled + (scaled_image.get_height() // 2)
+            image_x = self.width // 2 - mask_x_scaled + (scaled_image.get_width() // 2) + self.viewport_x_offset
+            image_y = self.height // 2 - mask_y_scaled + (scaled_image.get_height() // 2) + self.viewport_y_offset
         
         image_rect = scaled_image.get_rect(center=(image_x, image_y))
         
@@ -774,6 +994,10 @@ class SamuraiPNGTuber:
         # Draw glow behind the image (pass scale for proper sizing)
         self.draw_visor_glow(self.screen, (visor_x, visor_y), scale)
         
+        # Apply psychedelic effect to the image (if active)
+        if self.current_effect == 3:
+            rotated_image = self.apply_psychedelic_effect(rotated_image)
+        
         # Draw the samurai
         self.screen.blit(rotated_image, rotated_rect)
         
@@ -809,6 +1033,10 @@ class SamuraiPNGTuber:
             effect_str += f" (RAGE 🔥 Red: {self.effect1_red_intensity:.2f})"
         elif self.current_effect == 2:
             effect_str += f" (EMOJI PARTY 🎉 Count: {len(self.active_emojis)})"
+        elif self.current_effect == 3:
+            pattern_names = ["H-Wave", "V-Wave", "Diagonal", "Radial", "Checker", "Glitch", "Spiral", "Plasma"]
+            pattern_name = pattern_names[self.effect3_pattern_index]
+            effect_str += f" (PSYCHEDELIC 🌈 {pattern_name} | Hue: {self.effect3_hue_offset:.0f}°)"
         
         bg_names = {1: "Black", 2: "Rainbow", 3: "Ship 01", 4: "Ship 02", 5: "Crateria", 6: "Brinstar", 7: "Hellway", 8: "Tourian", 9: "Chaos"}
         bg_str = bg_names.get(self.current_background, "Unknown")
@@ -819,10 +1047,11 @@ class SamuraiPNGTuber:
             bg_str += f" 🌀✨💫 ({particles} particles)"
         
         texts = [
-            f"Zoom: {zoom_name} (Z+1 to Z+5)",
-            f"Viewport: {viewport} (D+1/D+2)",
+            f"Zoom: {zoom_name} (Z+1 to Z+0, 0=zoom 10)",
+            f"Viewport: {viewport} (D+1/D+2/D+3)",
+            f"Position: X={self.viewport_x_offset:+d} Y={self.viewport_y_offset:+d} (Arrow keys ±5px, R to reset)",
             f"Background: {bg_str} (B+1 to B+9)",
-            f"Effect: {effect_str} (E+1/E+2 to toggle)",
+            f"Effect: {effect_str} (E+1/E+2/E+3 to toggle)",
             f"Glow: {'🔵 TALKING' if self.glow_intensity > 0.02 else '🔵 IDLE'} ({total_glow:.2f})",
             f"Audio: Vol={self.last_volume:.0f}, Threshold={self.audio_threshold}",
             f"Bob: {self.rock_intensity:.2f} ({pattern_name})",
@@ -842,6 +1071,7 @@ class SamuraiPNGTuber:
             self.width, self.height = self.viewport_presets[preset_index]
             self.screen = pygame.display.set_mode((self.width, self.height))
             print(f"Changed viewport to {self.width}x{self.height}")
+            self.save_config()
     
     def change_zoom(self, zoom_index):
         """Change zoom level"""
@@ -849,6 +1079,7 @@ class SamuraiPNGTuber:
             self.current_zoom = zoom_index
             zoom_name = self.zoom_levels[zoom_index]['name']
             print(f"Changed zoom to {zoom_name}")
+            self.save_config()
     
     def handle_events(self):
         """Handle pygame events"""
@@ -868,8 +1099,33 @@ class SamuraiPNGTuber:
                     self.show_ui = not self.show_ui
                     print(f"UI text: {'ON' if self.show_ui else 'OFF'}")
                 
+                # Arrow keys to adjust viewport position (5px at a time)
+                elif event.key == pygame.K_UP:
+                    self.viewport_y_offset -= 5
+                    print(f"Position offset: X={self.viewport_x_offset}, Y={self.viewport_y_offset}")
+                    self.save_config()
+                elif event.key == pygame.K_DOWN:
+                    self.viewport_y_offset += 5
+                    print(f"Position offset: X={self.viewport_x_offset}, Y={self.viewport_y_offset}")
+                    self.save_config()
+                elif event.key == pygame.K_LEFT:
+                    self.viewport_x_offset -= 5
+                    print(f"Position offset: X={self.viewport_x_offset}, Y={self.viewport_y_offset}")
+                    self.save_config()
+                elif event.key == pygame.K_RIGHT:
+                    self.viewport_x_offset += 5
+                    print(f"Position offset: X={self.viewport_x_offset}, Y={self.viewport_y_offset}")
+                    self.save_config()
+                
+                # R to reset position offsets
+                elif event.key == pygame.K_r:
+                    self.viewport_x_offset = 0
+                    self.viewport_y_offset = 0
+                    print(f"Position offset reset to X=0, Y=0")
+                    self.save_config()
+                
                 # Check for key combos
-                # Z+1 through Z+5 for zoom levels
+                # Z+1 through Z+0 for zoom levels (Z+0 = zoom 10)
                 if pygame.K_z in self.keys_pressed and event.key == pygame.K_1:
                     self.change_zoom(0)
                 elif pygame.K_z in self.keys_pressed and event.key == pygame.K_2:
@@ -886,6 +1142,10 @@ class SamuraiPNGTuber:
                     self.change_zoom(6)
                 elif pygame.K_z in self.keys_pressed and event.key == pygame.K_8:
                     self.change_zoom(7)
+                elif pygame.K_z in self.keys_pressed and event.key == pygame.K_9:
+                    self.change_zoom(8)
+                elif pygame.K_z in self.keys_pressed and event.key == pygame.K_0:
+                    self.change_zoom(9)
                 
                 # D+1 for viewport 1 (800x800)
                 elif pygame.K_d in self.keys_pressed and event.key == pygame.K_1:
@@ -894,6 +1154,10 @@ class SamuraiPNGTuber:
                 # D+2 for viewport 2 (1200x800)
                 elif pygame.K_d in self.keys_pressed and event.key == pygame.K_2:
                     self.change_viewport(1)
+                
+                # D+3 for viewport 3 (1920x1080)
+                elif pygame.K_d in self.keys_pressed and event.key == pygame.K_3:
+                    self.change_viewport(2)
                 
                 # B+1 through B+9 for backgrounds
                 elif pygame.K_b in self.keys_pressed and event.key == pygame.K_1:
@@ -915,11 +1179,13 @@ class SamuraiPNGTuber:
                 elif pygame.K_b in self.keys_pressed and event.key == pygame.K_9:
                     self.change_background(9)
                 
-                # E+1, E+2 for effects
+                # E+1, E+2, E+3 for effects
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_1:
                     self.activate_effect(1)
                 elif pygame.K_e in self.keys_pressed and event.key == pygame.K_2:
                     self.activate_effect(2)
+                elif pygame.K_e in self.keys_pressed and event.key == pygame.K_3:
+                    self.activate_effect(3)
             
             elif event.type == pygame.KEYUP:
                 if event.key in self.keys_pressed:
@@ -929,13 +1195,13 @@ class SamuraiPNGTuber:
         """Main application loop"""
         print("\n=== Kentroid Samurai PNG-Tuber ===")
         print("Controls:")
-        print("  Z+1: Full body zoom")
-        print("  Z+2: Medium zoom")
-        print("  Z+3: Close zoom")
-        print("  Z+4: Closer zoom")
-        print("  Z+5: Extreme zoom (most zoomed)")
+        print("  Z+1: Full body (widest)")
+        print("  Z+2-4: Mid-body zooms (progressive)")
+        print("  Z+5-9: Face zooms (progressive, closer)")
+        print("  Z+0: Maximum face zoom (closest)")
         print("  D+1: Square viewport (800x800)")
         print("  D+2: Wide viewport (1200x800)")
+        print("  D+3: Full HD viewport (1920x1080, OBS-optimized)")
         print("  B+1: Black background")
         print("  B+2: Rainbow background")
         print("  B+3: Samus Ship 01 background")
@@ -947,6 +1213,9 @@ class SamuraiPNGTuber:
         print("  B+9: CHAOS background (MATHEMATICAL MADNESS 🌀✨💫)")
         print("  E+1: Toggle RAGE effect (red tint + explosions)")
         print("  E+2: Toggle EMOJI PARTY effect (bouncing emojis)")
+        print("  E+3: Toggle PSYCHEDELIC effect (8 auto-cycling neon patterns)")
+        print("  Arrow Keys: Fine-tune position (±5px)")
+        print("  R: Reset position to center")
         print("  T: Toggle UI text overlay")
         print("  ESC: Quit")
         print("\nSpeak into your microphone to activate the visor glow and talking animation!")
