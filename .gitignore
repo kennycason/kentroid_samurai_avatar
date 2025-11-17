@@ -10,6 +10,12 @@ __pycache__/
 *.pyzwz
 *.pyzwzw
 
+# Build artifacts
+build/
+dist/
+AppIcon.iconset/
+AppIcon.icns
+
 .DS_Store
 .vscode/
 .idea/

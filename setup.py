@@ -1,5 +1,5 @@
 """
-Setup script for creating a macOS .app bundle of Kentroid Samurai PNG-Tuber
+Setup script for creating a macOS .app bundle of Samurai Samus Avatar
 """
 
 from setuptools import setup
@@ -25,13 +25,15 @@ DATA_FILES = [
 ]
 
 OPTIONS = {
-    'argv_emulation': True,  # Allows drag-and-drop on the app icon
+    'argv_emulation': False,  # Disabled - Carbon framework not available on modern macOS
     'packages': ['pygame', 'pyaudio', 'numpy', 'PIL'],
-    'includes': ['chaos_effect'],  # Include our chaos_effect module
-    'iconfile': None,  # You can add an .icns file here if you have one
+    'includes': ['chaos_effect', 'colorsys', 'pkg_resources'],  # Include our chaos_effect module
+    'iconfile': 'AppIcon.icns',  # Samurai Samus app icon
+    'excludes': ['matplotlib', 'scipy'],  # Exclude unused heavy packages
+    'site_packages': True,  # Include all site-packages to catch namespace packages
     'plist': {
-        'CFBundleName': 'Kentroid Samurai PNG-Tuber',
-        'CFBundleDisplayName': 'Kentroid Samurai PNG-Tuber',
+        'CFBundleName': 'Samurai Samus Avatar',
+        'CFBundleDisplayName': 'Samurai Samus Avatar',
         'CFBundleIdentifier': 'com.kentroid.samurai.pngtuber',
         'CFBundleVersion': '1.0.0',
         'CFBundleShortVersionString': '1.0.0',
@@ -41,7 +43,7 @@ OPTIONS = {
 }
 
 setup(
-    name='Kentroid Samurai PNG-Tuber',
+    name='Samurai Samus',
     app=APP,
     data_files=DATA_FILES,
     options={'py2app': OPTIONS},

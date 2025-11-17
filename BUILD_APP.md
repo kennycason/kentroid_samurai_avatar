@@ -1,4 +1,4 @@
-# Building Kentroid Samurai PNG-Tuber as a macOS App
+# Building Samurai Samus Avatar as a macOS App
 
 This guide will help you package the PNG-Tuber into a standalone macOS `.app` bundle that you can double-click to run.
 
@@ -33,7 +33,7 @@ python setup.py py2app -A
 ### Step 3: Test the Alias App
 
 ```bash
-open dist/pngtuber.app
+open dist/Samurai\ Samus\ Avatar.app
 ```
 
 If it works correctly, proceed to create the standalone version.

@@ -1,4 +1,4 @@
-# Kentroid Samurai PNG-Tuber
+# Samurai Samus Avatar
 
 A VTuber-style avatar application featuring the Kentroid Samurai character with voice reactivity and multiple view modes.
 

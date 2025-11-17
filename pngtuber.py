@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kentroid Samurai PNG-Tuber
+Samurai Samus Avatar
 A simple VTuber-style avatar application with voice reactivity
 """
 
@@ -44,7 +44,7 @@ class SamuraiPNGTuber:
         self.viewport_y_offset = config.get('viewport_y_offset', 0)  # Manual Y offset for fine-tuning position (arrow keys)
         self.width, self.height = self.viewport_presets[self.current_viewport]
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("Kentroid Samurai PNG-Tuber")
+        pygame.display.set_caption("Samurai Samus Avatar")
         
         # Load samurai image
         self.image_path = Path(__file__).parent / "KentroidSamuraiTopVisorShade.PNG"
@@ -1193,7 +1193,7 @@ class SamuraiPNGTuber:
     
     def run(self):
         """Main application loop"""
-        print("\n=== Kentroid Samurai PNG-Tuber ===")
+        print("\n=== Samurai Samus Avatar ===")
         print("Controls:")
         print("  Z+1: Full body (widest)")
         print("  Z+2-4: Mid-body zooms (progressive)")
@@ -1277,7 +1277,7 @@ def list_audio_devices():
 
 if __name__ == "__main__":
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Kentroid Samurai PNG-Tuber')
+    parser = argparse.ArgumentParser(description='Samurai Samus Avatar')
     parser.add_argument('--list-devices', action='store_true',
                        help='List all available audio input devices and exit')
     parser.add_argument('--device', type=int, default=None,
